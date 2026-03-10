@@ -235,18 +235,24 @@ function renderActiveDiscordChallenges(challenges, myDiscordId) {
     const timeLeft  = ch.endAt ? formatTimeLeft(ch.endAt) : 'Unknown';
 
     const topRows = participants.slice(0, 10).map((p, i) => {
-      const isMe  = p[0] === myDiscordId;
-      const hrs   = ((p[1].studyMinutes || 0) / 60).toFixed(2);
-      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
+      const isMe     = p[0] === myDiscordId;
+      const hrs      = ((p[1].studyMinutes || 0) / 60).toFixed(2);
+      const medal    = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
+      // Use stored username/avatar from Firestore (saved by bot on join)
+      const uName    = isMe
+        ? (Discord.user?.global_name || Discord.user?.username || 'You')
+        : (p[1].username || `User ${p[0].slice(0,6)}…`);
+      const uAvatar  = isMe
+        ? discordAvatarUrl(Discord.user)
+        : (p[1].avatar || `https://cdn.discordapp.com/embed/avatars/${i % 5}.png`);
       return `
         <tr style="${isMe ? 'background:rgba(255,209,0,0.06)' : ''}">
           <td style="font-weight:700;color:${i < 3 ? 'var(--yellow)' : 'var(--text-muted)'}">${medal}</td>
           <td>
             <div style="display:flex;align-items:center;gap:8px">
-              <div style="width:28px;height:28px;border-radius:50%;background:var(--bg-elevated);border:1px solid var(--border-soft);display:flex;align-items:center;justify-content:center;font-size:0.65rem;flex-shrink:0">
-                ${isMe ? '<span style="color:var(--yellow)">YOU</span>' : '👤'}
-              </div>
-              <span style="${isMe ? 'color:var(--yellow);font-weight:600' : ''}">${isMe ? 'You' : `User ${p[0].slice(0,6)}…`}</span>
+              <img src="${uAvatar}" style="width:28px;height:28px;border-radius:50%;border:1px solid ${isMe ? 'var(--yellow)' : 'var(--border-soft)'};flex-shrink:0;object-fit:cover"
+                onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+              <span style="${isMe ? 'color:var(--yellow);font-weight:600' : ''}">${escapeHtml(uName)}</span>
             </div>
           </td>
           <td class="mono">${hrs}h</td>
