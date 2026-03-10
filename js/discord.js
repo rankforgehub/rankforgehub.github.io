@@ -6,7 +6,7 @@
 // ─── Discord OAuth Config ────────────────────────────────────
 // Replace with your Discord application's Client ID
 // Create app at: https://discord.com/developers/applications
-const DISCORD_CLIENT_ID = 'YOUR_DISCORD_CLIENT_ID';
+const DISCORD_CLIENT_ID = '1465025250189381869';
 const DISCORD_REDIRECT   = window.location.origin + '/discord-callback.html';
 const DISCORD_SCOPES     = 'identify guilds';
 
