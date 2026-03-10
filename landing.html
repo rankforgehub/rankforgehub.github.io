@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RankForge — Break the Exams</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffd100">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;900&display=swap">
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+
+  <!-- Lucide icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --yellow: #ffd100;
+      --bg-modal: #0d1117;
+      --bg-elevated: #161b22;
+      --bg-surface: #1c2230;
+      --border: rgba(255,255,255,0.08);
+      --border-soft: rgba(255,255,255,0.12);
+      --text-primary: #f0f4ff;
+      --text-muted: rgba(255,255,255,0.45);
+      --red: #f43f5e;
+      --cyan: #22d3ee;
+      --font: 'Montserrat', sans-serif;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: #000;
+      overflow: hidden;
+      touch-action: none;
+      font-family: var(--font);
+    }
+
+    #canvas { position: fixed; inset: 0; z-index: 0; }
+
+    /* ── Hero ── */
+    .hero {
+      position: relative; z-index: 10;
+      height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    .hero-tag {
+      font-size: 0.7rem; font-weight: 500;
+      letter-spacing: 0.28em; text-transform: uppercase;
+      color: rgba(255,255,255,0.4); margin-bottom: 18px;
+    }
+    .hero-title {
+      font-size: clamp(52px, 10vw, 108px); font-weight: 900;
+      text-transform: uppercase; color: #fff;
+      line-height: 0.88; text-align: center; letter-spacing: -0.02em;
+      text-shadow: 0 0 60px rgba(255,209,0,0.2), 0 0 120px rgba(255,209,0,0.08);
+    }
+    .hero-title span { color: var(--yellow); }
+    .hero-sub {
+      font-size: clamp(12px, 1.8vw, 16px); font-weight: 400;
+      color: rgba(255,255,255,0.45); margin-top: 16px;
+      letter-spacing: 0.05em; text-align: center;
+    }
+    .hero-cta {
+      pointer-events: all; margin-top: 42px;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+    }
+    .btn-start {
+      font-family: var(--font); font-size: 0.88rem; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: #000; background: var(--yellow); border: none;
+      border-radius: 100px; padding: 15px 42px; cursor: pointer;
+      transition: transform 0.18s, box-shadow 0.18s, background 0.18s;
+      box-shadow: 0 0 32px rgba(255,209,0,0.4), 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .btn-start:hover { transform: translateY(-2px) scale(1.04); background: #ffe033; box-shadow: 0 0 52px rgba(255,209,0,0.6), 0 8px 30px rgba(0,0,0,0.6); }
+    .btn-start:active { transform: scale(0.97); }
+    .hero-note { font-size: 0.68rem; color: rgba(255,255,255,0.25); letter-spacing: 0.1em; text-transform: uppercase; }
+
+    /* ── Auth Overlay ── */
+    .auth-overlay {
+      display: none; position: fixed; inset: 0; z-index: 100;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    .auth-overlay.open { display: flex; }
+    .auth-modal {
+      background: var(--bg-modal); border: 1px solid var(--border-soft);
+      border-radius: 20px; width: 100%; max-width: 420px; max-height: 90vh;
+      overflow-y: auto; padding: 32px 28px; position: relative;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.04);
+      animation: modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes modalIn { from { opacity:0; transform:scale(0.94) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
+
+    .modal-close-btn {
+      position: absolute; top: 16px; right: 16px;
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 1px solid var(--border); background: var(--bg-elevated);
+      color: var(--text-muted); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: color 0.15s, background 0.15s;
+    }
+    .modal-close-btn:hover { color: var(--text-primary); background: var(--bg-surface); }
+
+    /* ── Auth Logo ── */
+    .auth-logo { text-align: center; margin-bottom: 24px; }
+    .auth-logo-icon {
+      width: 48px; height: 48px; background: var(--yellow); border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 10px; font-size: 1rem; font-weight: 900; color: #000; letter-spacing: -0.05em;
+    }
+    .auth-logo h2 { font-size: 1.2rem; font-weight: 900; color: var(--text-primary); letter-spacing: -0.02em; }
+    .auth-logo p  { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; letter-spacing: 0.04em; }
+
+    /* ── Tabs ── */
+    .auth-tabs { display: flex; background: var(--bg-elevated); border-radius: 10px; padding: 3px; margin-bottom: 22px; }
+    .auth-tab {
+      flex: 1; padding: 8px; border: none; border-radius: 8px;
+      background: transparent; color: var(--text-muted);
+      font-family: var(--font); font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .auth-tab.active { background: var(--bg-surface); color: var(--text-primary); box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+
+    /* ── Forms ── */
+    .form-group { margin-bottom: 14px; }
+    .form-label { display: block; font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+    .input-wrap { position: relative; display: flex; align-items: center; }
+    .input-wrap i { position: absolute; left: 12px; width: 15px; height: 15px; color: var(--text-muted); pointer-events: none; flex-shrink: 0; }
+    .form-input {
+      width: 100%; background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px 10px 36px;
+      color: var(--text-primary); font-family: var(--font); font-size: 0.85rem; outline: none; transition: border-color 0.2s;
+    }
+    .form-input:focus { border-color: rgba(255,209,0,0.5); }
+    .form-input::placeholder { color: var(--text-muted); }
+    select.form-input { cursor: pointer; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* ── Buttons ── */
+    .btn-auth {
+      width: 100%; padding: 12px; background: var(--yellow); color: #000; border: none;
+      border-radius: 10px; font-family: var(--font); font-size: 0.85rem; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: background 0.15s, transform 0.15s; letter-spacing: 0.02em; margin-top: 6px;
+    }
+    .btn-auth:hover { background: #ffe033; transform: translateY(-1px); }
+    .btn-auth:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .google-btn {
+      width: 100%; padding: 11px; background: var(--bg-elevated); color: var(--text-primary);
+      border: 1px solid var(--border-soft); border-radius: 10px;
+      font-family: var(--font); font-size: 0.83rem; font-weight: 500; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 10px; transition: background 0.15s;
+    }
+    .google-btn:hover { background: var(--bg-surface); }
+    .divider { text-align: center; font-size: 0.7rem; color: var(--text-muted); margin: 14px 0; position: relative; letter-spacing: 0.06em; }
+    .divider::before, .divider::after { content:''; position:absolute; top:50%; width:30%; height:1px; background:var(--border); }
+    .divider::before { left:0; } .divider::after { right:0; }
+
+    /* ── Error box ── */
+    .error-box { background:rgba(244,63,94,0.1); border:1px solid rgba(244,63,94,0.25); border-radius:8px; padding:10px 12px; font-size:0.75rem; color:#f87171; margin-bottom:12px; display:none; }
+
+    /* ── Staff banner ── */
+    .staff-banner { background:rgba(34,211,238,0.08); border:1px solid rgba(34,211,238,0.2); border-radius:8px; padding:10px 12px; margin-bottom:14px; display:flex; align-items:flex-start; gap:8px; }
+    .staff-banner-title { font-size:0.68rem; font-weight:700; color:var(--cyan); text-transform:uppercase; letter-spacing:0.08em; }
+    .staff-banner-sub   { font-size:0.68rem; color:var(--text-muted); margin-top:2px; }
+
+    /* ── Key modal ── */
+    .key-overlay { display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.7); align-items:center; justify-content:center; }
+    .key-overlay.open { display:flex; }
+    .key-modal { background:var(--bg-modal); border:1px solid var(--border-soft); border-radius:16px; padding:28px 24px; width:100%; max-width:360px; animation:modalIn 0.2s ease; }
+
+    /* ── Google role modal ── */
+    .grole-overlay { display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.75); backdrop-filter:blur(6px); align-items:center; justify-content:center; }
+    .grole-overlay.open { display:flex; }
+    .grole-modal { background:var(--bg-modal); border:1px solid var(--border-soft); border-radius:16px; padding:28px 24px; width:100%; max-width:360px; animation:modalIn 0.2s ease; }
+
+    /* ── Pending screen ── */
+    .pending-overlay { display:none; position:fixed; inset:0; z-index:300; background:#080c14; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:40px 24px; }
+    .pending-overlay.open { display:flex; }
+
+    /* ── Toast ── */
+    .toast-container { position:fixed; bottom:24px; right:24px; z-index:9999; display:flex; flex-direction:column; gap:8px; }
+    .toast { display:flex; align-items:center; gap:10px; padding:12px 16px; border-radius:10px; font-size:0.8rem; font-weight:500; font-family:var(--font); box-shadow:0 8px 24px rgba(0,0,0,0.5); animation:toastIn 0.25s ease; max-width:300px; }
+    @keyframes toastIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+    .toast.success { background:#1a2e1a; border:1px solid rgba(34,197,94,0.3); color:#86efac; }
+    .toast.error   { background:#2e1a1a; border:1px solid rgba(244,63,94,0.3);  color:#fca5a5; }
+    .toast.info    { background:#1a2030; border:1px solid rgba(34,211,238,0.3); color:#67e8f9; }
+    .toast.warning { background:#2e2a1a; border:1px solid rgba(234,179,8,0.3);  color:#fde68a; }
+
+    /* ── Spinner ── */
+    .spinner { width:16px; height:16px; border:2px solid rgba(0,0,0,0.2); border-top-color:#000; border-radius:50%; animation:spin 0.7s linear infinite; display:inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .text-xs { font-size:0.72rem; }
+    .text-muted { color:var(--text-muted); }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<!-- ── Hero ── -->
+<div class="hero">
+  <div class="hero-tag">Competitive Study Platform</div>
+  <h1 class="hero-title">Rank<span>Forge</span></h1>
+  <p class="hero-sub">Don't waste time. Let's break the exams.</p>
+  <div class="hero-cta">
+    <button class="btn-start" onclick="openAuth()">Let's Get Started</button>
+    <span class="hero-note">Track · Compete · Dominate</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  AUTH MODAL                                               -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="auth-overlay" id="authOverlay" onclick="if(event.target===this)closeAuth()">
+  <div class="auth-modal">
+    <button class="modal-close-btn" onclick="closeAuth()">
+      <i data-lucide="x" style="width:14px;height:14px"></i>
+    </button>
+    <div class="auth-logo">
+      <div class="auth-logo-icon">RF</div>
+      <h2>RankForge</h2>
+      <p>Competitive Study Platform</p>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active"  id="tab-login"    onclick="switchTab('login')">Sign In</button>
+      <button class="auth-tab"         id="tab-register" onclick="switchTab('register')">Register</button>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="panel-login">
+      <div class="error-box" id="loginErr"></div>
+      <form onsubmit="doLogin(event)">
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <div class="input-wrap">
+            <i data-lucide="mail"></i>
+            <input id="li-email" type="email" class="form-input" placeholder="your@email.com" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <div class="input-wrap">
+            <i data-lucide="lock"></i>
+            <input id="li-pass" type="password" class="form-input" placeholder="••••••••" required>
+          </div>
+        </div>
+        <button id="loginBtn" type="submit" class="btn-auth">
+          <i data-lucide="log-in"></i> Sign In
+        </button>
+      </form>
+      <div class="divider">or continue with</div>
+      <button class="google-btn" onclick="doGoogle()">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2L40.4 6C36.3 2.3 30.5 0 24 0 14.6 0 6.6 5.5 2.7 13.5l7.8 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.6H24v9h12.7C35.8 33 32.7 35.5 29 36.9v6.3h7.3C40.5 39.2 46.5 32.8 46.5 24.5z"/><path fill="#FBBC05" d="M10.5 28.8c-.7-2-1-4.2-1-6.4s.4-4.4 1-6.4L2.7 9.9C1 13.3 0 17 0 21s1 7.7 2.7 11.1l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 12-2.2 16-5.9l-7.3-6.3c-2.2 1.4-5 2.3-8.7 2.3-6.3 0-11.6-4.1-13.5-9.7l-7.8 6.1C6.6 42.5 14.6 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+    </div>
+
+    <!-- REGISTER -->
+    <div id="panel-register" style="display:none">
+      <div class="error-box" id="regErr"></div>
+      <form onsubmit="doRegister(event)">
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <div class="input-wrap">
+            <i data-lucide="user"></i>
+            <input id="re-name" type="text" class="form-input" placeholder="Arjun Sharma" required>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <div class="input-wrap">
+              <i data-lucide="mail"></i>
+              <input id="re-email" type="email" class="form-input" placeholder="your@email.com" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <div class="input-wrap">
+              <i data-lucide="lock"></i>
+              <input id="re-pass" type="password" class="form-input" placeholder="Min 6 chars" required>
+            </div>
+          </div>
+        </div>
+        <div class="form-group" id="instCodeGroup">
+          <label class="form-label">Institute Code</label>
+          <div class="input-wrap">
+            <i data-lucide="key-round"></i>
+            <input id="re-code" type="text" class="form-input" placeholder="e.g. RF8A2X" maxlength="6" oninput="this.value=this.value.toUpperCase()">
+          </div>
+          <div class="text-xs text-muted" style="margin-top:5px">Ask your institute admin for the code</div>
+        </div>
+        <input type="hidden" id="re-role" value="student">
+        <button id="registerBtn" type="submit" class="btn-auth">
+          <i data-lucide="user-plus"></i> Create Account
+        </button>
+        <!-- Staff section -->
+        <div id="staffAppSection" style="display:none;margin-top:18px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.06)">
+          <div class="staff-banner">
+            <i data-lucide="briefcase" style="width:14px;height:14px;color:var(--cyan);flex-shrink:0;margin-top:1px"></i>
+            <div>
+              <div class="staff-banner-title">Staff Application Mode</div>
+              <div class="staff-banner-sub">Your application will be reviewed before activation.</div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Role Applying For</label>
+            <div class="input-wrap">
+              <i data-lucide="briefcase"></i>
+              <select id="re-roleApplied" class="form-input" style="padding-left:36px">
+                <option value="Admin">Admin — Manage students & sessions</option>
+                <option value="Co-Admin">Co-Admin — Assist admin</option>
+                <option value="Moderator">Moderator — Monitor sessions</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <div class="input-wrap">
+              <i data-lucide="phone"></i>
+              <input id="re-phone" type="tel" class="form-input" placeholder="+91 98765 43210">
+            </div>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:12px">
+          <button type="button" onclick="showKeyModal()"
+            style="background:none;border:none;cursor:pointer;font-size:0.65rem;font-family:var(--font);color:rgba(255,255,255,0.2);transition:color 0.2s;padding:4px 8px;letter-spacing:0.06em"
+            id="staffTrigger"
+            onmouseenter="this.style.color='rgba(255,255,255,0.5)'" onmouseleave="this.style.color='rgba(255,255,255,0.2)'">
+            Apply as Staff Member
+          </button>
+        </div>
+      </form>
+      <div class="divider">or continue with</div>
+      <button class="google-btn" onclick="doGoogle()">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2L40.4 6C36.3 2.3 30.5 0 24 0 14.6 0 6.6 5.5 2.7 13.5l7.8 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.6H24v9h12.7C35.8 33 32.7 35.5 29 36.9v6.3h7.3C40.5 39.2 46.5 32.8 46.5 24.5z"/><path fill="#FBBC05" d="M10.5 28.8c-.7-2-1-4.2-1-6.4s.4-4.4 1-6.4L2.7 9.9C1 13.3 0 17 0 21s1 7.7 2.7 11.1l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 12-2.2 16-5.9l-7.3-6.3c-2.2 1.4-5 2.3-8.7 2.3-6.3 0-11.6-4.1-13.5-9.7l-7.8 6.1C6.6 42.5 14.6 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Admin Key Modal ── -->
+<div class="key-overlay" id="keyOverlay">
+  <div class="key-modal">
+    <div style="font-weight:700;font-size:0.95rem;color:var(--text-primary);margin-bottom:4px">Staff Access Key</div>
+    <div class="text-xs text-muted" style="margin-bottom:14px">Enter the admin secret key to unlock the staff application form.</div>
+    <div class="error-box" id="keyErr" style="margin-bottom:10px"></div>
+    <div class="input-wrap" style="margin-bottom:14px">
+      <i data-lucide="key-round"></i>
+      <input id="keyInput" type="password" class="form-input" placeholder="Enter secret key">
+    </div>
+    <div style="display:flex;gap:10px">
+      <button onclick="verifyKey()" class="btn-auth" style="margin-top:0"><i data-lucide="unlock"></i> Verify</button>
+      <button onclick="document.getElementById('keyOverlay').classList.remove('open')"
+        style="flex:1;padding:11px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:10px;color:var(--text-muted);font-family:var(--font);font-size:0.83rem;cursor:pointer">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Google Role Modal ── -->
+<div class="grole-overlay" id="googleRoleModal">
+  <div class="grole-modal">
+    <div style="font-weight:700;font-size:0.95rem;color:var(--text-primary);margin-bottom:4px">One Last Step</div>
+    <div class="text-xs text-muted" style="margin-bottom:14px">Enter your institute code to complete your account setup.</div>
+    <div class="input-wrap" style="margin-bottom:8px">
+      <i data-lucide="key-round"></i>
+      <input id="googleCode" type="text" class="form-input" placeholder="Institute Code e.g. RF8A2X" maxlength="6" oninput="this.value=this.value.toUpperCase()">
+    </div>
+    <div class="text-xs text-muted" style="margin-bottom:14px">Ask your admin for the code.</div>
+    <button onclick="completeGoogle()" class="btn-auth" style="margin-top:0"><i data-lucide="check"></i> Complete Setup</button>
+  </div>
+</div>
+
+<!-- ── Pending Screen ── -->
+<div class="pending-overlay" id="pendingScreen">
+  <div style="width:72px;height:72px;border-radius:50%;background:rgba(255,209,0,0.1);border:2px solid rgba(255,209,0,0.3);display:flex;align-items:center;justify-content:center;margin-bottom:24px;color:var(--yellow)">
+    <i data-lucide="clock" style="width:32px;height:32px"></i>
+  </div>
+  <h2 style="font-size:1.3rem;font-weight:700;color:var(--text-primary);margin-bottom:8px">Application Under Review</h2>
+  <p style="color:var(--text-muted);font-size:0.85rem;max-width:340px;line-height:1.7;margin-bottom:28px">
+    Hi <strong id="pendingName" style="color:var(--text-primary)">there</strong>, your application for
+    <strong id="pendingRole" style="color:var(--yellow)">Admin</strong> is being reviewed. You'll be notified once approved.
+  </p>
+  <div style="display:flex;gap:12px">
+    <button id="checkStatusBtn" onclick="checkStatus()"
+      style="padding:11px 22px;background:var(--yellow);color:#000;border:none;border-radius:10px;font-family:var(--font);font-size:0.82rem;font-weight:700;cursor:pointer">
+      Check Status
+    </button>
+    <button onclick="doSignOut()"
+      style="padding:11px 22px;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:10px;color:var(--text-muted);font-family:var(--font);font-size:0.82rem;cursor:pointer">
+      Sign Out
+    </button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  LOGIC                                                    -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<script>
+const ADMIN_KEY     = 'RF-ADMIN-2026';
+const WEBHOOK       = 'https://canary.discord.com/api/webhooks/1476079557630234676/q7ybZUVYpgWIsLU2EWIjNZc6X82cdY9ojNbBDFtB3kZu2rVa5R8EwIchwHpFlfk0b81o';
+
+// ── Toast ──────────────────────────────────────────────────────
+const T_ICONS = {
+  success:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+  error:  `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+  info:   `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+  warning:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+};
+function showToast(msg, type='info', dur=4000) {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `${T_ICONS[type]}<span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(() => { t.style.cssText += 'opacity:0;transform:translateX(20px);transition:all 0.3s'; setTimeout(()=>t.remove(),310); }, dur);
+}
+
+// ── Modal helpers ──────────────────────────────────────────────
+function openAuth()  { document.getElementById('authOverlay').classList.add('open'); lucide.createIcons(); }
+function closeAuth() { document.getElementById('authOverlay').classList.remove('open'); }
+
+function switchTab(tab) {
+  document.getElementById('panel-login').style.display    = tab==='login'    ? '' : 'none';
+  document.getElementById('panel-register').style.display = tab==='register' ? '' : 'none';
+  document.getElementById('tab-login').classList.toggle('active',    tab==='login');
+  document.getElementById('tab-register').classList.toggle('active', tab==='register');
+}
+
+function showKeyModal() {
+  document.getElementById('keyInput').value = '';
+  document.getElementById('keyErr').style.display = 'none';
+  document.getElementById('keyOverlay').classList.add('open');
+  lucide.createIcons();
+}
+function verifyKey() {
+  const v = document.getElementById('keyInput').value.trim();
+  const e = document.getElementById('keyErr');
+  if (v !== ADMIN_KEY) { e.textContent='Wrong key. Contact RankForge to obtain one.'; e.style.display='block'; return; }
+  document.getElementById('keyOverlay').classList.remove('open');
+  document.getElementById('staffAppSection').style.display = 'block';
+  document.getElementById('re-role').value = 'admin';
+  document.getElementById('instCodeGroup').style.display = 'none';
+  document.getElementById('staffTrigger').style.display = 'none';
+  showToast('Staff application form unlocked.', 'success');
+}
+
+// ── Login ──────────────────────────────────────────────────────
+async function doLogin(e) {
+  e.preventDefault();
+  const btn = document.getElementById('loginBtn');
+  const err = document.getElementById('loginErr');
+  err.style.display = 'none';
+  btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
+  try {
+    await auth.signInWithEmailAndPassword(
+      document.getElementById('li-email').value,
+      document.getElementById('li-pass').value
+    );
+    // onAuthStateChanged will redirect
+  } catch(ex) {
+    err.textContent = ex.message; err.style.display = 'block';
+    btn.disabled = false; btn.innerHTML = '<i data-lucide="log-in"></i> Sign In'; lucide.createIcons();
+  }
+}
+
+// ── Register ───────────────────────────────────────────────────
+async function doRegister(e) {
+  e.preventDefault();
+  const name  = document.getElementById('re-name').value.trim();
+  const email = document.getElementById('re-email').value.trim();
+  const pass  = document.getElementById('re-pass').value;
+  const code  = document.getElementById('re-code').value.trim();
+  const role  = document.getElementById('re-role').value;
+  const phone = document.getElementById('re-phone')?.value.trim() || '';
+  const roleApplied = document.getElementById('re-roleApplied')?.value || 'Admin';
+  const btn   = document.getElementById('registerBtn');
+  const err   = document.getElementById('regErr');
+  err.style.display = 'none';
+  btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>';
+
+  try {
+    const cred = await auth.createUserWithEmailAndPassword(email, pass);
+    await cred.user.updateProfile({ displayName: name });
+
+    if (role === 'admin') {
+      await db.collection('users').doc(cred.user.uid).set({
+        name, email, phone, roleApplied, role: 'pending_admin', instituteId: null,
+        totalPoints:0, weeklyPoints:0, monthlyPoints:0, streak:0, studyHours:0, attendanceCount:0, testsGiven:0,
+        appliedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      await db.collection('staffApplications').doc(cred.user.uid).set({
+        uid: cred.user.uid, name, email, phone, roleApplied, status: 'pending',
+        appliedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      await notifyAdmin({ uid: cred.user.uid, name, email, phone, roleApplied });
+      showToast('Application submitted! You will be notified once approved.', 'success');
+    } else {
+      if (!code) {
+        showToast('Please enter your institute code.', 'warning');
+        await cred.user.delete();
+        btn.disabled = false; btn.innerHTML = '<i data-lucide="user-plus"></i> Create Account'; lucide.createIcons(); return;
+      }
+      const snap = await db.collection('institutes').where('code','==',code.toUpperCase()).get();
+      if (snap.empty) {
+        showToast('Invalid institute code. Ask your admin.', 'error');
+        await cred.user.delete();
+        btn.disabled = false; btn.innerHTML = '<i data-lucide="user-plus"></i> Create Account'; lucide.createIcons(); return;
+      }
+      const instituteId = snap.docs[0].id;
+      await db.collection('institutes').doc(instituteId).update({ totalStudents: firebase.firestore.FieldValue.increment(1) });
+      await db.collection('users').doc(cred.user.uid).set({
+        name, email, role: 'student', instituteId,
+        totalPoints:0, weeklyPoints:0, monthlyPoints:0, streak:0, studyHours:0, attendanceCount:0, testsGiven:0,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      showToast('Account created! Welcome to RankForge!', 'success');
+    }
+  } catch(ex) {
+    err.textContent = ex.message; err.style.display = 'block';
+    btn.disabled = false; btn.innerHTML = '<i data-lucide="user-plus"></i> Create Account'; lucide.createIcons();
+  }
+}
+
+// ── Google ─────────────────────────────────────────────────────
+async function doGoogle() {
+  try {
+    const result = await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+    const doc = await db.collection('users').doc(result.user.uid).get();
+    if (!doc.exists) {
+      window._pendingGoogleUser = result.user;
+      document.getElementById('googleRoleModal').classList.add('open');
+      lucide.createIcons();
+    }
+  } catch(ex) { showToast(ex.message, 'error'); }
+}
+async function completeGoogle() {
+  const u    = window._pendingGoogleUser;
+  const code = document.getElementById('googleCode').value.trim();
+  if (!u) return;
+  if (!code) { showToast('Please enter your institute code.', 'warning'); return; }
+  const snap = await db.collection('institutes').where('code','==',code.toUpperCase()).get();
+  if (snap.empty) { showToast('Invalid institute code.', 'error'); return; }
+  const instituteId = snap.docs[0].id;
+  await db.collection('institutes').doc(instituteId).update({ totalStudents: firebase.firestore.FieldValue.increment(1) });
+  await db.collection('users').doc(u.uid).set({
+    name: u.displayName, email: u.email, role: 'student', instituteId,
+    totalPoints:0, weeklyPoints:0, monthlyPoints:0, streak:0, studyHours:0, attendanceCount:0, testsGiven:0,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+  });
+  document.getElementById('googleRoleModal').classList.remove('open');
+  showToast('Welcome to RankForge!', 'success');
+}
+
+// ── Pending ────────────────────────────────────────────────────
+function showPending(data) {
+  document.getElementById('pendingName').textContent = data?.name?.split(' ')[0] || 'there';
+  document.getElementById('pendingRole').textContent = data?.roleApplied || 'Admin';
+  document.getElementById('pendingScreen').classList.add('open');
+  closeAuth(); lucide.createIcons();
+}
+async function checkStatus() {
+  const btn = document.getElementById('checkStatusBtn');
+  btn.disabled = true; btn.textContent = 'Checking...';
+  try {
+    const doc  = await db.collection('users').doc(auth.currentUser.uid).get();
+    const role = doc.data()?.role;
+    if (role === 'admin')    { window.location.href = 'index.html'; }
+    else if (role === 'rejected') { showToast('Application rejected. Contact support.', 'error'); doSignOut(); }
+    else { showToast('Still pending. Check back soon.', 'info'); btn.disabled = false; btn.textContent = 'Check Status'; }
+  } catch(ex) { showToast('Could not check. Try again.', 'error'); btn.disabled = false; btn.textContent = 'Check Status'; }
+}
+async function doSignOut() {
+  await auth.signOut();
+  document.getElementById('pendingScreen').classList.remove('open');
+}
+
+// ── Discord notification ───────────────────────────────────────
+async function notifyAdmin(data) {
+  const when = new Date().toLocaleString('en-IN', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true});
+  const base = window.location.origin + '/index.html';
+  try {
+    await fetch(WEBHOOK, { method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username:'RankForge Guard', embeds:[{ title:'New Staff Application', color:0xFFD100,
+        fields:[
+          {name:'Name',    value:data.name,               inline:true},
+          {name:'Email',   value:data.email,              inline:true},
+          {name:'Role',    value:data.roleApplied||'Admin',inline:true},
+          {name:'Applied', value:when,                    inline:false},
+          {name:'Approve', value:`[Click](${base}?action=approve&uid=${data.uid}&key=${ADMIN_KEY})`, inline:true},
+          {name:'Reject',  value:`[Click](${base}?action=reject&uid=${data.uid}&key=${ADMIN_KEY})`,  inline:true},
+        ]
+      }]})
+    });
+  } catch(ex) {}
+}
+
+// ── Auth state — if already logged in, go straight to dashboard ──
+auth.onAuthStateChanged(async (user) => {
+  if (user) {
+    try {
+      const doc  = await db.collection('users').doc(user.uid).get();
+      const data = doc.data() || {};
+      if (data.role === 'pending_admin') {
+        showPending(data);
+      } else {
+        window.location.href = 'index.html';
+      }
+    } catch(ex) {
+      window.location.href = 'index.html';
+    }
+  }
+});
+
+// Escape closes modals
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  closeAuth();
+  document.getElementById('keyOverlay').classList.remove('open');
+  document.getElementById('googleRoleModal').classList.remove('open');
+});
+
+document.addEventListener('DOMContentLoaded', () => lucide.createIcons());
+</script>
+
+<!-- Tubes animation -->
+<script type="module">
+  import TubesCursor from "https://cdn.jsdelivr.net/npm/threejs-components@0.0.19/build/cursors/tubes1.min.js"
+
+  const app = TubesCursor(document.getElementById('canvas'), {
+    tubes: {
+      colors: ["#ffd100", "#f97316", "#6958d5"],
+      lights: { intensity: 200, colors: ["#ffd100", "#ff8c42", "#a855f7", "#22d3ee"] }
+    }
+  })
+
+  const PALETTES = [
+    { tubes:["#ffd100","#f97316","#a855f7"], lights:["#ffd100","#ff6b6b","#7c3aed","#22d3ee"] },
+    { tubes:["#22d3ee","#ffd100","#f43f5e"], lights:["#06b6d4","#ffd100","#e11d48","#a78bfa"] },
+    { tubes:["#a855f7","#ffd100","#22c55e"], lights:["#9333ea","#ffd100","#16a34a","#f97316"] },
+    { tubes:["#ffd100","#60a5fa","#f43f5e"], lights:["#ffd100","#3b82f6","#f43f5e","#34d399"] },
+  ]
+  let idx = 0
+  document.body.addEventListener('click', e => {
+    if (e.target.closest('.auth-overlay, .key-overlay, .grole-overlay, .pending-overlay, .btn-start')) return
+    idx = (idx + 1) % PALETTES.length
+    app.tubes.setColors(PALETTES[idx].tubes)
+    app.tubes.setLightsColors(PALETTES[idx].lights)
+  })
+</script>
+
+</body>
+</html>
