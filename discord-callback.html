@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RankForge — Discord Login</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23ffd100'/><text y='72' font-size='65' font-weight='900' font-family='monospace' fill='%23080c14' text-anchor='middle' x='50'>R</text></svg>">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg-void,#080c14); }
+    .callback-box {
+      text-align:center; padding:48px 40px; max-width:400px;
+      background:var(--bg-surface,#111827); border:1px solid var(--border-soft,#1f2937);
+      border-radius:16px;
+    }
+    .spinner-lg {
+      width:48px; height:48px; border:3px solid rgba(255,209,0,0.15);
+      border-top-color:#ffd100; border-radius:50%;
+      animation:spin 0.8s linear infinite; margin:0 auto 20px;
+    }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    h2 { color:#ffd100; margin-bottom:8px; font-size:1.2rem; }
+    p  { color:#6b7280; font-size:0.85rem; }
+    .error-box { background:rgba(244,63,94,0.08); border:1px solid rgba(244,63,94,0.2);
+      border-radius:8px; padding:16px; margin-top:20px; color:#f43f5e; font-size:0.82rem; }
+  </style>
+</head>
+<body>
+<div class="callback-box" id="box">
+  <div class="spinner-lg"></div>
+  <h2>Connecting Discord…</h2>
+  <p>Please wait while we verify your account.</p>
+</div>
+
+<script>
+(async () => {
+  const params = new URLSearchParams(window.location.search);
+  const code   = params.get('code');
+  const state  = params.get('state');
+  const error  = params.get('error');
+  const box    = document.getElementById('box');
+
+  // ── REPLACE THIS with your Vercel deployment URL ──────────
+  // After deploying to Vercel, it will look like:
+  // https://rankforge-discord-oauth.vercel.app/api/discord-oauth
+  const VERCEL_FUNCTION_URL = 'https://YOUR-APP-NAME.vercel.app/api/discord-oauth';
+  // ─────────────────────────────────────────────────────────
+
+  function showError(msg) {
+    box.innerHTML = `
+      <div style="font-size:2rem;margin-bottom:16px">❌</div>
+      <h2 style="color:#f43f5e">Login Failed</h2>
+      <div class="error-box">${msg}</div>
+      <a href="index.html" style="display:inline-block;margin-top:20px;color:#ffd100;font-size:0.85rem">← Back to RankForge</a>
+    `;
+  }
+
+  if (error) { showError('Discord denied the request: ' + error); return; }
+  if (!code)  { showError('No authorization code received.'); return; }
+
+  // Verify state to prevent CSRF
+  const savedState = sessionStorage.getItem('discord_oauth_state');
+  if (state !== savedState) {
+    showError('Security check failed (state mismatch). Please try again.');
+    return;
+  }
+  sessionStorage.removeItem('discord_oauth_state');
+
+  try {
+    const res = await fetch(VERCEL_FUNCTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code,
+        redirectUri: window.location.origin + '/discord-callback.html'
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Server error ' + res.status);
+    }
+
+    const { user } = await res.json();
+
+    // Save Discord user to sessionStorage so main app can read it
+    sessionStorage.setItem('discord_user', JSON.stringify(user));
+
+    box.innerHTML = `
+      <div style="font-size:2.5rem;margin-bottom:16px">✅</div>
+      <h2 style="color:#22c55e">Connected!</h2>
+      <p>Welcome, <strong style="color:#fff">${user.global_name || user.username}</strong>! Redirecting…</p>
+    `;
+
+    setTimeout(() => {
+      window.location.href = 'index.html#discord-dashboard';
+    }, 1200);
+
+  } catch(e) {
+    showError(e.message || 'Unexpected error. Please try again.');
+  }
+})();
+</script>
+</body>
+</html>
