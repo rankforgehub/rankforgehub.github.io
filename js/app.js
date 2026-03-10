@@ -283,9 +283,8 @@ auth.onAuthStateChanged(async (user) => {
   } else {
     App.currentUser = null;
     App.userProfile = null;
-    document.getElementById('authScreen').classList.remove('hidden');
-    document.getElementById('appShell').classList.add('hidden');
-    hidePendingScreen();
+    // Redirect to landing page — auth lives there now
+    window.location.href = 'landing.html';
     stopAllListeners();
   }
 });
