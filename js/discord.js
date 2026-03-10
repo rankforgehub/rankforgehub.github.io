@@ -30,7 +30,7 @@ let botDb;
 })();
 
 // ─── Discord OAuth Config ────────────────────────────────────
-const DISCORD_CLIENT_ID = 'YOUR_DISCORD_CLIENT_ID'; // <-- replace
+const DISCORD_CLIENT_ID = '1465025250189381869'; // <-- replace
 const DISCORD_REDIRECT  = window.location.origin + '/discord-callback.html';
 const DISCORD_SCOPES    = 'identify';
 
